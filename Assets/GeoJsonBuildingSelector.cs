@@ -2,8 +2,9 @@ using UnityEngine;
 using UnityEngine.Networking;
 using System.Collections;
 using System.Collections.Generic;
+using TMPro; // If your text is TMP, otherwise use UnityEngine.UI.Text
 
-#region GeoJSON data structures
+#region GeoJSON structures
 
 [System.Serializable]
 public class FeatureCollection
@@ -36,40 +37,37 @@ public class Properties
 
 #endregion
 
-#region Runtime building container
-
 public class Building
 {
     public List<Vector2> polygon;
     public Properties properties;
 }
 
-#endregion
-
 public class GeoJsonBuildingSelector : MonoBehaviour
 {
     public string fileName = "data_BDNB_ONB_grenoble_mapshaper.json";
 
-    // Reference origin
+    // Reference point from mapshaper bbox
     public double refX = 913350.0;
     public double refY = 6456700.0;
-
-    // 1 Unity unit = 1 meter
     public float scale = 1f;
 
-    private List<Building> buildings = new();
+    private List<Building> buildings = new List<Building>();
+
+    [Header("UI")]
+    public TextMeshProUGUI infoText; // assign your BuildingInfoText from AR Canvas
 
     IEnumerator Start()
     {
-        string path = System.IO.Path.Combine(
-            Application.streamingAssetsPath, fileName
-        );
+        // Hide info at start
+        if(infoText != null)
+            infoText.gameObject.SetActive(false);
 
+        string path = System.IO.Path.Combine(Application.streamingAssetsPath, fileName);
         UnityWebRequest req = UnityWebRequest.Get(path);
         yield return req.SendWebRequest();
 
-        FeatureCollection geo =
-            JsonUtility.FromJson<FeatureCollection>(req.downloadHandler.text);
+        FeatureCollection geo = JsonUtility.FromJson<FeatureCollection>(req.downloadHandler.text);
 
         foreach (Feature f in geo.features)
         {
@@ -82,8 +80,7 @@ public class GeoJsonBuildingSelector : MonoBehaviour
                 properties = f.properties
             };
 
-            // Exterior ring only
-            double[][] ring = f.geometry.coordinates[0];
+            double[][] ring = f.geometry.coordinates[0]; // exterior ring
 
             foreach (double[] p in ring)
             {
@@ -100,16 +97,14 @@ public class GeoJsonBuildingSelector : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(0))
         {
-            Vector3 world =
-                Camera.main.ScreenToWorldPoint(Input.mousePosition);
-
+            Vector3 world = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             Vector2 touch = new Vector2(world.x, world.y);
 
             foreach (Building b in buildings)
             {
                 if (IsPointInsidePolygon(touch, b.polygon))
                 {
-                    ShowBuildingInfo(b, touch);
+                    ShowBuildingInfo(b);
                     break;
                 }
             }
@@ -133,14 +128,16 @@ public class GeoJsonBuildingSelector : MonoBehaviour
         return inside;
     }
 
-    void ShowBuildingInfo(Building b, Vector2 pos)
+    void ShowBuildingInfo(Building b)
     {
-        Debug.Log(
+        if(infoText == null) return;
+
+        infoText.text =
             $"Building ID: {b.properties.batiment_construction_id}\n" +
             $"Usage: {b.properties.usage_main}\n" +
             $"Year: {b.properties.construction_year}\n" +
-            $"Heating: {b.properties.heating_energy}\n" +
-            $"Position: {pos}"
-        );
+            $"Heating: {b.properties.heating_energy}";
+
+        infoText.gameObject.SetActive(true);
     }
 }

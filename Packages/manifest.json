@@ -3,6 +3,7 @@
     "com.ptc.vuforia.engine": "file:com.ptc.vuforia.engine-11.4.4.tgz",
     "com.unity.collab-proxy": "2.11.2",
     "com.unity.feature.development": "1.0.1",
+    "com.unity.mobile.android-logcat": "1.4.7",
     "com.unity.nuget.newtonsoft-json": "3.2.2",
     "com.unity.textmeshpro": "3.0.7",
     "com.unity.timeline": "1.7.7",

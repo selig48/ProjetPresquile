@@ -1,6 +1,5 @@
 using UnityEngine;
 using TMPro;
-using System.Collections.Generic;
 
 public class BuildingInfoUI : MonoBehaviour
 {
@@ -10,7 +9,7 @@ public class BuildingInfoUI : MonoBehaviour
     public TextMeshProUGUI resultText;
 
     [Header("Data Source")]
-    public BuildingManager buildingManager;   // ← NEW
+    public BuildingManager buildingManager;
 
     void Start()
     {
@@ -31,6 +30,12 @@ public class BuildingInfoUI : MonoBehaviour
 
     public void SearchBuilding()
     {
+        if (!buildingManager.IsLoaded)
+        {
+            resultText.text = "⏳ Base de données en cours de chargement...";
+            return;
+        }
+
         string id = inputField.text.Trim();
 
         if (string.IsNullOrEmpty(id))
@@ -39,7 +44,6 @@ public class BuildingInfoUI : MonoBehaviour
             return;
         }
 
-        // 🔥 NOW WE ASK THE MANAGER
         Building found = buildingManager.GetBuildingByID(id);
 
         if (found == null)
@@ -48,22 +52,13 @@ public class BuildingInfoUI : MonoBehaviour
             return;
         }
 
-        Vector2 center = GetPolygonCenter(found.polygon);
+        var p = found.properties;
 
         resultText.text =
             "<b>BÂTIMENT TROUVÉ</b>\n\n" +
-            $"ID : {found.properties.batiment_construction_id}\n" +
-            $"Usage : {found.properties.usage_main}\n" +
-            $"Année : {found.properties.construction_year}\n" +
-            $"Chauffage : {found.properties.heating_energy}\n\n" +
-            $"Position approx :\nX = {center.x:F2}\nY = {center.y:F2}";
-    }
-
-    Vector2 GetPolygonCenter(List<Vector2> poly)
-    {
-        Vector2 sum = Vector2.zero;
-        foreach (var p in poly)
-            sum += p;
-        return sum / poly.Count;
+            $"ID : {p.batiment_construction_id}\n" +
+            $"Usage : {p.usage_main}\n" +
+            $"Année : {(p.construction_year.HasValue ? p.construction_year.Value.ToString("F0") : "Inconnue")}\n" +
+            $"Chauffage : {p.heating_energy}";
     }
 }

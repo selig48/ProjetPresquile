@@ -15,15 +15,7 @@ public class FeatureCollection
 [System.Serializable]
 public class Feature
 {
-    public Geometry geometry;
     public Properties properties;
-}
-
-[System.Serializable]
-public class Geometry
-{
-    public string type;
-    public double[][][] coordinates;
 }
 
 [System.Serializable]
@@ -31,7 +23,7 @@ public class Properties
 {
     public string batiment_construction_id;
     public string usage_main;
-    public double? construction_year;   // nullable (important)
+    public double? construction_year;
     public string heating_energy;
 }
 
@@ -39,26 +31,24 @@ public class Properties
 
 public class Building
 {
-    public List<Vector2> polygon;
     public Properties properties;
 }
 
 public class BuildingManager : MonoBehaviour
 {
-    [Header("JSON FILE")]
-    public string fileName = "data_BDNB_ONB_grenoble_mapshaper.json";
+    [Header("JSON FILE (StreamingAssets)")]
+    public string fileName = "building_db_light.json"; // ✅ FIXED
 
-    [Header("COORDINATE CONVERSION")]
-    public double refX = 913384.6;
-    public double refY = 6456736.1;
-    public float scale = 1f;
-
-    private List<Building> buildings = new List<Building>();
+    private Dictionary<string, Building> buildingDict = new Dictionary<string, Building>();
+    public bool IsLoaded { get; private set; } = false;
 
     IEnumerator Start()
     {
+        Debug.Log("📂 Loading building database...");
+
         string path = System.IO.Path.Combine(Application.streamingAssetsPath, fileName);
         UnityWebRequest req = UnityWebRequest.Get(path);
+
         yield return req.SendWebRequest();
 
         if (req.result != UnityWebRequest.Result.Success)
@@ -67,51 +57,49 @@ public class BuildingManager : MonoBehaviour
             yield break;
         }
 
-        Debug.Log("✅ JSON LOADED");
+        string json = req.downloadHandler.text;
 
-        FeatureCollection geo =
-            JsonConvert.DeserializeObject<FeatureCollection>(req.downloadHandler.text);
+        if (string.IsNullOrEmpty(json))
+        {
+            Debug.LogError("❌ JSON FILE EMPTY");
+            yield break;
+        }
+
+        Debug.Log("✅ JSON LOADED, size: " + json.Length);
+
+        FeatureCollection geo = JsonConvert.DeserializeObject<FeatureCollection>(json);
+
+        if (geo == null || geo.features == null)
+        {
+            Debug.LogError("❌ NO FEATURES FOUND");
+            yield break;
+        }
 
         foreach (Feature f in geo.features)
         {
-            if (f.geometry.type != "Polygon")
-                continue;
+            if (f.properties == null) continue;
 
-            Building b = new Building
-            {
-                polygon = new List<Vector2>(),
-                properties = f.properties
-            };
+            string id = f.properties.batiment_construction_id;
 
-            double[][] ring = f.geometry.coordinates[0];
+            if (string.IsNullOrEmpty(id)) continue;
 
-            foreach (double[] p in ring)
-            {
-                float x = (float)((p[0] - refX) * scale);
-                float y = (float)((p[1] - refY) * scale);
-                b.polygon.Add(new Vector2(x, y));
-            }
+            Building b = new Building { properties = f.properties };
 
-            buildings.Add(b);
+            buildingDict[id] = b;
         }
 
-        Debug.Log("🏢 BUILDINGS LOADED: " + buildings.Count);
+        IsLoaded = true;
+
+        Debug.Log("🏢 BUILDINGS LOADED: " + buildingDict.Count);
+        Debug.Log("🎉 DATABASE READY");
     }
 
     // 🔍 SEARCH BY ID (used by UI)
     public Building GetBuildingByID(string id)
     {
-        foreach (Building b in buildings)
-        {
-            if (b.properties.batiment_construction_id == id)
-                return b;
-        }
-        return null;
-    }
+        if (!IsLoaded) return null;
 
-    // (Optional) access to all buildings
-    public List<Building> GetBuildings()
-    {
-        return buildings;
+        buildingDict.TryGetValue(id, out Building b);
+        return b;
     }
 }
